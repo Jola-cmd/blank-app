@@ -1,51 +1,46 @@
 import requests
-import streamlit as st
+import pandas as pd
 
 class CryptoAPI:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.base_url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
     
-    def get_crypto_price(self, symbol: str):
+    def get_crypto_price(self, symbol: str, convert_currency='EUR'):
         headers = {
             'Accepts': 'application/json',
             'X-CMC_PRO_API_KEY': self.api_key,
         }
         params = {
-            'convert': 'USD'
+            'convert': convert_currency
         }
         response = requests.get(self.base_url, headers=headers, params=params)
         
         if response.status_code != 200:
-            st.error(f"API-Anfrage fehlgeschlagen mit Statuscode: {response.status_code}")
+            print(f"API request failed with status code: {response.status_code}")
             return None
         
         data = response.json()
-        st.write("API-Antwort:", data)  # Debugging-Ausgabe der gesamten API-Antwort
-        
         if 'data' not in data:
-            st.error("Antwort der API enthält nicht das 'data'-Feld.")
+            print("API response does not contain the 'data' field.")
             return None
         
-        st.write("Inhalt von data['data']:", data['data'])  # Debugging-Ausgabe der 'data'-Liste
-        
+        # Iterate over the cryptocurrencies and check for the matching symbol
         for crypto in data['data']:
-            st.write("Überprüfe Symbol:", crypto.get('symbol'))  # Debugging-Ausgabe jedes Symbols
             if isinstance(crypto, dict) and crypto.get('symbol') == symbol:
-                if 'quote' in crypto and 'USD' in crypto['quote']:
-                    return crypto['quote']['USD']['price']
+                if 'quote' in crypto and convert_currency in crypto['quote']:
+                    # Return relevant data for the DataFrame
+                    return {
+                        'name': crypto.get('name'),
+                        'symbol': crypto.get('symbol'),
+                        'price': crypto['quote'][convert_currency]['price'],
+                        'percent_change_24h': crypto['quote'][convert_currency].get('percent_change_24h'),
+                        'market_cap': crypto['quote'][convert_currency].get('market_cap'),
+                        'volume_24h': crypto['quote'][convert_currency].get('volume_24h'),
+                    }
                 else:
-                    st.error(f"Preisinformationen für {symbol} sind nicht verfügbar.")
+                    print(f"Price information for {symbol} is not available.")
                     return None
         
-        st.error(f"Symbol {symbol} nicht gefunden.")
+        print(f"Symbol {symbol} not found.")
         return None
-
-# Beispiel für die Verwendung in der Streamlit-App
-crypto_api = CryptoAPI(api_key="deine_api_schlüssel")
-symbol = "ETHW"
-price = crypto_api.get_crypto_price(symbol)
-st.write(f"Preis für {symbol}:", price)
-
-
-
